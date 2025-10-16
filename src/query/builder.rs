@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::query::{OrderDirection, QueryBuilder};
+use crate::query::{JoinType, OrderDirection, QueryBuilder, QueryValue};
 use crate::schema::Column;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +33,11 @@ pub struct QueryBuilderEnum {
     update_sets: Vec<(String, String)>,
     delete_table: Option<String>,
     returning_columns: Vec<String>,
+    joins: Vec<(JoinType, String, String)>, // (type, table, on_condition)
+    group_by_columns: Vec<String>,
+    having_clause: Option<String>,
+    is_distinct: bool,
+    params: Vec<QueryValue>,
 }
 
 impl QueryBuilderEnum {
@@ -53,11 +58,34 @@ impl QueryBuilderEnum {
             update_sets: Vec::new(),
             delete_table: None,
             returning_columns: Vec::new(),
+            joins: Vec::new(),
+            group_by_columns: Vec::new(),
+            having_clause: None,
+            is_distinct: false,
+            params: Vec::new(),
+        }
+    }
+
+    /// Get the parameters for this query
+    pub fn params(&self) -> &[QueryValue] {
+        &self.params
+    }
+
+    /// Add a parameter and return its placeholder
+    fn add_param(&mut self, value: QueryValue) -> String {
+        self.params.push(value);
+        match self.dialect {
+            Dialect::SQLite => "?".to_string(),
+            Dialect::MySQL => "?".to_string(),
         }
     }
 
     fn build_select(&self) -> Result<String> {
         let mut sql = String::from("SELECT ");
+
+        if self.is_distinct {
+            sql.push_str("DISTINCT ");
+        }
 
         if self.columns.is_empty() {
             sql.push('*');
@@ -70,9 +98,32 @@ impl QueryBuilderEnum {
             sql.push_str(table);
         }
 
+        // Add JOINs
+        for (join_type, table, on) in &self.joins {
+            let join_str = match join_type {
+                JoinType::Inner => "INNER JOIN",
+                JoinType::Left => "LEFT JOIN",
+                JoinType::Right => "RIGHT JOIN",
+                JoinType::Full => "FULL OUTER JOIN",
+            };
+            sql.push_str(&format!(" {} {} ON {}", join_str, table, on));
+        }
+
         if !self.where_clauses.is_empty() {
             sql.push_str(" WHERE ");
             sql.push_str(&self.where_clauses.join(" AND "));
+        }
+
+        // Add GROUP BY
+        if !self.group_by_columns.is_empty() {
+            sql.push_str(" GROUP BY ");
+            sql.push_str(&self.group_by_columns.join(", "));
+        }
+
+        // Add HAVING
+        if let Some(having) = &self.having_clause {
+            sql.push_str(" HAVING ");
+            sql.push_str(having);
         }
 
         if !self.order_by.is_empty() {
@@ -210,6 +261,12 @@ impl QueryBuilder for QueryBuilderEnum {
         self
     }
 
+    fn where_eq(&mut self, column: &str, value: QueryValue) -> &mut Self {
+        let placeholder = self.add_param(value);
+        self.where_clauses.push(format!("{} = {}", column, placeholder));
+        self
+    }
+
     fn order_by(&mut self, column: &str, direction: OrderDirection) -> &mut Self {
         self.order_by.push((column.to_string(), direction));
         self
@@ -238,6 +295,12 @@ impl QueryBuilder for QueryBuilderEnum {
         self
     }
 
+    fn values_params(&mut self, values: &[QueryValue]) -> &mut Self {
+        let value_row: Vec<String> = values.iter().map(|v| self.add_param(v.clone())).collect();
+        self.insert_values.push(value_row);
+        self
+    }
+
     fn update(&mut self, table: &str) -> &mut Self {
         self.query_type = QueryType::Update;
         self.update_table = Some(table.to_string());
@@ -246,6 +309,12 @@ impl QueryBuilder for QueryBuilderEnum {
 
     fn set(&mut self, column: &str, value: &str) -> &mut Self {
         self.update_sets.push((column.to_string(), value.to_string()));
+        self
+    }
+
+    fn set_param(&mut self, column: &str, value: QueryValue) -> &mut Self {
+        let placeholder = self.add_param(value);
+        self.update_sets.push((column.to_string(), placeholder));
         self
     }
 
@@ -263,6 +332,26 @@ impl QueryBuilder for QueryBuilderEnum {
         self
     }
 
+    fn join(&mut self, table: &str, on: &str, join_type: JoinType) -> &mut Self {
+        self.joins.push((join_type, table.to_string(), on.to_string()));
+        self
+    }
+
+    fn group_by(&mut self, columns: &[&str]) -> &mut Self {
+        self.group_by_columns = columns.iter().map(|c| c.to_string()).collect();
+        self
+    }
+
+    fn having(&mut self, condition: &str) -> &mut Self {
+        self.having_clause = Some(condition.to_string());
+        self
+    }
+
+    fn distinct(&mut self) -> &mut Self {
+        self.is_distinct = true;
+        self
+    }
+
     fn build(&self) -> Result<String> {
         match self.query_type {
             QueryType::Select => self.build_select(),
@@ -270,6 +359,10 @@ impl QueryBuilder for QueryBuilderEnum {
             QueryType::Update => self.build_update(),
             QueryType::Delete => self.build_delete(),
         }
+    }
+
+    fn params(&self) -> &[QueryValue] {
+        &self.params
     }
 
     fn reset(&mut self) {
@@ -287,6 +380,11 @@ impl QueryBuilder for QueryBuilderEnum {
         self.update_sets.clear();
         self.delete_table = None;
         self.returning_columns.clear();
+        self.joins.clear();
+        self.group_by_columns.clear();
+        self.having_clause = None;
+        self.is_distinct = false;
+        self.params.clear();
     }
 }
 

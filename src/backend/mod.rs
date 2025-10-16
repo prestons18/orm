@@ -3,6 +3,7 @@ pub mod sqlite;
 
 use crate::error::Result;
 use crate::query::builder::{Dialect, QueryBuilderEnum};
+use crate::query::QueryValue;
 use async_trait::async_trait;
 
 /// Trait representing a database backend
@@ -17,8 +18,26 @@ pub trait Backend: Send + Sync + 'static {
     /// Create a query builder for this backend
     fn query_builder(&self) -> QueryBuilderEnum;
 
-    /// Execute raw SQL
+    /// Execute raw SQL (deprecated - use execute with params)
     async fn execute_raw(&self, sql: &str) -> Result<u64>;
+
+    /// Execute SQL with parameters (safe from SQL injection)
+    async fn execute(&self, sql: &str, params: &[QueryValue]) -> Result<u64>;
+
+    /// Fetch all rows from a query as JSON values (deprecated - use fetch_all_params)
+    async fn fetch_all(&self, sql: &str) -> Result<Vec<serde_json::Value>>;
+
+    /// Fetch all rows with parameters (safe from SQL injection)
+    async fn fetch_all_params(&self, sql: &str, params: &[QueryValue]) -> Result<Vec<serde_json::Value>>;
+
+    /// Fetch one row from a query as JSON value (deprecated - use fetch_one_params)
+    async fn fetch_one(&self, sql: &str) -> Result<Option<serde_json::Value>>;
+
+    /// Fetch one row with parameters (safe from SQL injection)
+    async fn fetch_one_params(&self, sql: &str, params: &[QueryValue]) -> Result<Option<serde_json::Value>>;
+
+    /// Begin a new transaction
+    async fn begin_transaction(&self) -> Result<crate::transaction::Transaction>;
 
     /// Check if the backend supports a specific feature
     fn supports_feature(&self, feature: BackendFeature) -> bool;
@@ -66,7 +85,7 @@ pub enum DatabaseBackend {
 
 impl DatabaseBackend {
     pub fn from_url(url: &str) -> Result<Self> {
-        if url.starts_with("sqlite://") {
+        if url.starts_with("sqlite:") {
             Ok(DatabaseBackend::SQLite)
         } else if url.starts_with("mysql://") {
             Ok(DatabaseBackend::MySQL)
