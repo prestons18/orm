@@ -24,7 +24,8 @@ impl<'a, T: Model + FromRow> ModelQuery<'a, T> {
         }
     }
 
-    /// Add a WHERE clause
+    /// Add a WHERE clause (deprecated - use where_eq for safety)
+    #[deprecated(note = "Use where_eq() with parameters for SQL injection protection")]
     pub fn where_clause(mut self, condition: &str) -> Self {
         self.builder.where_clause(condition);
         self
@@ -147,8 +148,10 @@ pub trait ModelCrud: Model + FromRow {
         Self::query(backend).get().await
     }
 
-    /// Find records matching a condition
+    /// Find records matching a condition (deprecated - use parameterized queries)
+    #[deprecated(note = "Use query().where_eq() with parameters for SQL injection protection")]
     async fn where_clause(backend: &dyn Backend, condition: &str) -> Result<Vec<Self>> {
+        #[allow(deprecated)]
         Self::query(backend)
             .where_clause(condition)
             .get()
@@ -203,7 +206,7 @@ pub trait ModelCrud: Model + FromRow {
                 None => Err(Error::QueryError("Failed to create record".to_string())),
             }
         } else {
-            // For MySQL: execute insert, then fetch by primary key
+            // For MySQL: execute insert, then fetch using LAST_INSERT_ID()
             let sql = builder
                 .insert_into(Self::table_name(), &columns)
                 .values_params(&query_values)
@@ -217,8 +220,20 @@ pub trait ModelCrud: Model + FromRow {
                 Self::find(backend, pk_value).await?
                     .ok_or_else(|| Error::QueryError("Failed to fetch created record".to_string()))
             } else {
-                // For auto-increment IDs, we'd need LAST_INSERT_ID() - not implemented yet
-                Err(Error::QueryError("Auto-increment ID retrieval not yet implemented for MySQL".to_string()))
+                // For auto-increment IDs, use LAST_INSERT_ID()
+                let last_id_sql = "SELECT LAST_INSERT_ID() as id";
+                #[allow(deprecated)]
+                let result = backend.fetch_one(last_id_sql).await?;
+                match result {
+                    Some(json) => {
+                        let id = json.get("id")
+                            .and_then(|v| v.as_i64())
+                            .ok_or_else(|| Error::QueryError("Failed to get last insert ID".to_string()))?;
+                        Self::find(backend, Value::I64(id)).await?
+                            .ok_or_else(|| Error::QueryError("Failed to fetch created record".to_string()))
+                    }
+                    None => Err(Error::QueryError("Failed to get last insert ID".to_string()))
+                }
             }
         }
     }
@@ -264,15 +279,19 @@ pub trait ModelCrud: Model + FromRow {
         Ok(())
     }
 
-    /// Delete records by condition
+    /// Delete records by condition (deprecated - use parameterized queries)
+    #[deprecated(note = "Use delete() on individual models or build custom parameterized queries")]
     async fn delete_where(backend: &dyn Backend, condition: &str) -> Result<u64> {
-        let mut builder = backend.query_builder();
-        let sql = builder
-            .delete_from(Self::table_name())
-            .where_clause(condition)
-            .build()?;
+        #[allow(deprecated)]
+        {
+            let mut builder = backend.query_builder();
+            let sql = builder
+                .delete_from(Self::table_name())
+                .where_clause(condition)
+                .build()?;
 
-        backend.execute_raw(&sql).await
+            backend.execute_raw(&sql).await
+        }
     }
 
     /// Count all records
@@ -285,6 +304,7 @@ pub trait ModelCrud: Model + FromRow {
             .from(Self::table_name())
             .build()?;
 
+        #[allow(deprecated)]
         let result = backend.fetch_one(&sql).await?;
         match result {
             Some(json) => {

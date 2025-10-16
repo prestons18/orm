@@ -347,13 +347,16 @@ impl MigrationRunner {
                 migration.up(&mut schema).await?;
                 schema.execute(backend).await?;
                 
-                // Record migration
-                let sql = format!(
-                    "INSERT INTO migrations (version, name, executed_at) VALUES ({}, '{}', datetime('now'))",
-                    migration.version(),
-                    migration.name()
-                );
-                backend.execute_raw(&sql).await?;
+                // Record migration with parameterized query
+                let sql = match self.dialect {
+                    Dialect::SQLite => "INSERT INTO migrations (version, name, executed_at) VALUES (?, ?, datetime('now'))",
+                    Dialect::MySQL => "INSERT INTO migrations (version, name, executed_at) VALUES (?, ?, NOW())",
+                };
+                let params = vec![
+                    crate::query::QueryValue::I64(migration.version()),
+                    crate::query::QueryValue::String(migration.name().to_string()),
+                ];
+                backend.execute(sql, &params).await?;
                 
                 println!("✓ Migration completed: {}", migration.name());
             }
@@ -376,9 +379,10 @@ impl MigrationRunner {
                 migration.down(&mut schema).await?;
                 schema.execute(backend).await?;
                 
-                // Remove migration record
-                let sql = format!("DELETE FROM migrations WHERE version = {}", version);
-                backend.execute_raw(&sql).await?;
+                // Remove migration record with parameterized query
+                let sql = "DELETE FROM migrations WHERE version = ?";
+                let params = vec![crate::query::QueryValue::I64(version)];
+                backend.execute(sql, &params).await?;
                 
                 println!("✓ Rollback completed: {}", migration.name());
             }

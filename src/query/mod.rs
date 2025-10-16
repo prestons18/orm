@@ -14,7 +14,8 @@ pub trait QueryBuilder: Send + Sync {
     /// Build a FROM clause
     fn from(&mut self, table: &str) -> &mut Self;
     
-    /// Build a WHERE clause (deprecated - use where_eq for safety)
+    /// Build a WHERE clause (DEPRECATED - vulnerable to SQL injection, use where_eq)
+    #[deprecated(note = "Use where_eq() with parameters for SQL injection protection")]
     fn where_clause(&mut self, condition: &str) -> &mut Self;
     
     /// Add a WHERE clause with a parameter (safe from SQL injection)
@@ -32,7 +33,8 @@ pub trait QueryBuilder: Send + Sync {
     /// Build an INSERT query
     fn insert_into(&mut self, table: &str, columns: &[&str]) -> &mut Self;
     
-    /// Add values for INSERT (deprecated - use values_params for safety)
+    /// Add values for INSERT (DEPRECATED - vulnerable to SQL injection, use values_params)
+    #[deprecated(note = "Use values_params() with parameters for SQL injection protection")]
     fn values(&mut self, values: &[&str]) -> &mut Self;
     
     /// Add parameterized values for INSERT (safe from SQL injection)
@@ -41,7 +43,8 @@ pub trait QueryBuilder: Send + Sync {
     /// Build an UPDATE query
     fn update(&mut self, table: &str) -> &mut Self;
     
-    /// Add SET clause for UPDATE (deprecated - use set_param for safety)
+    /// Add SET clause for UPDATE (DEPRECATED - vulnerable to SQL injection, use set_param)
+    #[deprecated(note = "Use set_param() with parameters for SQL injection protection")]
     fn set(&mut self, column: &str, value: &str) -> &mut Self;
     
     /// Add SET clause with parameter (safe from SQL injection)

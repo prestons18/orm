@@ -55,39 +55,11 @@ impl Backend for MySQLBackend {
     }
 
     async fn fetch_all(&self, sql: &str) -> Result<Vec<serde_json::Value>> {
-        use sqlx::{Column, Row};
         let rows = sqlx::query(sql).fetch_all(self.pool()).await?;
-        
-        let results = rows
-            .iter()
-            .map(|row| {
-                let mut obj = serde_json::Map::new();
-                for (i, column) in row.columns().iter().enumerate() {
-                    let column_name = column.name();
-                    let value = if let Ok(v) = row.try_get::<i64, _>(i) {
-                        serde_json::json!(v)
-                    } else if let Ok(v) = row.try_get::<i32, _>(i) {
-                        serde_json::json!(v)
-                    } else if let Ok(v) = row.try_get::<f64, _>(i) {
-                        serde_json::json!(v)
-                    } else if let Ok(v) = row.try_get::<bool, _>(i) {
-                        serde_json::Value::Bool(v)
-                    } else if let Ok(v) = row.try_get::<String, _>(i) {
-                        serde_json::Value::String(v)
-                    } else {
-                        serde_json::Value::Null
-                    };
-                    obj.insert(column_name.to_string(), value);
-                }
-                serde_json::Value::Object(obj)
-            })
-            .collect();
-        
-        Ok(results)
+        Ok(rows.iter().map(crate::utils::mysql_row_to_json).collect())
     }
 
     async fn fetch_all_params(&self, sql: &str, params: &[QueryValue]) -> Result<Vec<serde_json::Value>> {
-        use sqlx::{Column, Row};
         let mut query = sqlx::query(sql);
         for param in params {
             query = match param {
@@ -100,64 +72,15 @@ impl Backend for MySQLBackend {
             };
         }
         let rows = query.fetch_all(self.pool()).await?;
-        
-        let results = rows
-            .iter()
-            .map(|row| {
-                let mut obj = serde_json::Map::new();
-                for (i, column) in row.columns().iter().enumerate() {
-                    let column_name = column.name();
-                    let value = if let Ok(v) = row.try_get::<i64, _>(i) {
-                        serde_json::json!(v)
-                    } else if let Ok(v) = row.try_get::<i32, _>(i) {
-                        serde_json::json!(v)
-                    } else if let Ok(v) = row.try_get::<f64, _>(i) {
-                        serde_json::json!(v)
-                    } else if let Ok(v) = row.try_get::<bool, _>(i) {
-                        serde_json::Value::Bool(v)
-                    } else if let Ok(v) = row.try_get::<String, _>(i) {
-                        serde_json::Value::String(v)
-                    } else {
-                        serde_json::Value::Null
-                    };
-                    obj.insert(column_name.to_string(), value);
-                }
-                serde_json::Value::Object(obj)
-            })
-            .collect();
-        
-        Ok(results)
+        Ok(rows.iter().map(crate::utils::mysql_row_to_json).collect())
     }
 
     async fn fetch_one(&self, sql: &str) -> Result<Option<serde_json::Value>> {
-        use sqlx::{Column, Row};
         let row_opt = sqlx::query(sql).fetch_optional(self.pool()).await?;
-        
-        Ok(row_opt.as_ref().map(|row| {
-            let mut obj = serde_json::Map::new();
-            for (i, column) in row.columns().iter().enumerate() {
-                let column_name = column.name();
-                let value = if let Ok(v) = row.try_get::<i64, _>(i) {
-                    serde_json::json!(v)
-                } else if let Ok(v) = row.try_get::<i32, _>(i) {
-                    serde_json::json!(v)
-                } else if let Ok(v) = row.try_get::<f64, _>(i) {
-                    serde_json::json!(v)
-                } else if let Ok(v) = row.try_get::<bool, _>(i) {
-                    serde_json::Value::Bool(v)
-                } else if let Ok(v) = row.try_get::<String, _>(i) {
-                    serde_json::Value::String(v)
-                } else {
-                    serde_json::Value::Null
-                };
-                obj.insert(column_name.to_string(), value);
-            }
-            serde_json::Value::Object(obj)
-        }))
+        Ok(row_opt.as_ref().map(crate::utils::mysql_row_to_json))
     }
 
     async fn fetch_one_params(&self, sql: &str, params: &[QueryValue]) -> Result<Option<serde_json::Value>> {
-        use sqlx::{Column, Row};
         let mut query = sqlx::query(sql);
         for param in params {
             query = match param {
@@ -170,28 +93,7 @@ impl Backend for MySQLBackend {
             };
         }
         let row_opt = query.fetch_optional(self.pool()).await?;
-        
-        Ok(row_opt.as_ref().map(|row| {
-            let mut obj = serde_json::Map::new();
-            for (i, column) in row.columns().iter().enumerate() {
-                let column_name = column.name();
-                let value = if let Ok(v) = row.try_get::<i64, _>(i) {
-                    serde_json::json!(v)
-                } else if let Ok(v) = row.try_get::<i32, _>(i) {
-                    serde_json::json!(v)
-                } else if let Ok(v) = row.try_get::<f64, _>(i) {
-                    serde_json::json!(v)
-                } else if let Ok(v) = row.try_get::<bool, _>(i) {
-                    serde_json::Value::Bool(v)
-                } else if let Ok(v) = row.try_get::<String, _>(i) {
-                    serde_json::Value::String(v)
-                } else {
-                    serde_json::Value::Null
-                };
-                obj.insert(column_name.to_string(), value);
-            }
-            serde_json::Value::Object(obj)
-        }))
+        Ok(row_opt.as_ref().map(crate::utils::mysql_row_to_json))
     }
 
     async fn begin_transaction(&self) -> Result<crate::transaction::Transaction> {

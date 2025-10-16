@@ -18,19 +18,22 @@ pub trait Backend: Send + Sync + 'static {
     /// Create a query builder for this backend
     fn query_builder(&self) -> QueryBuilderEnum;
 
-    /// Execute raw SQL (deprecated - use execute with params)
+    /// Execute raw SQL (DEPRECATED - vulnerable to SQL injection, use execute instead)
+    #[deprecated(note = "Use execute() with parameters for SQL injection protection")]
     async fn execute_raw(&self, sql: &str) -> Result<u64>;
 
     /// Execute SQL with parameters (safe from SQL injection)
     async fn execute(&self, sql: &str, params: &[QueryValue]) -> Result<u64>;
 
-    /// Fetch all rows from a query as JSON values (deprecated - use fetch_all_params)
+    /// Fetch all rows from a query as JSON values (DEPRECATED - vulnerable to SQL injection, use fetch_all_params)
+    #[deprecated(note = "Use fetch_all_params() with parameters for SQL injection protection")]
     async fn fetch_all(&self, sql: &str) -> Result<Vec<serde_json::Value>>;
 
     /// Fetch all rows with parameters (safe from SQL injection)
     async fn fetch_all_params(&self, sql: &str, params: &[QueryValue]) -> Result<Vec<serde_json::Value>>;
 
-    /// Fetch one row from a query as JSON value (deprecated - use fetch_one_params)
+    /// Fetch one row from a query as JSON value (DEPRECATED - vulnerable to SQL injection, use fetch_one_params)
+    #[deprecated(note = "Use fetch_one_params() with parameters for SQL injection protection")]
     async fn fetch_one(&self, sql: &str) -> Result<Option<serde_json::Value>>;
 
     /// Fetch one row with parameters (safe from SQL injection)
