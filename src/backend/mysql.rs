@@ -1,32 +1,27 @@
-use crate::backend::{Backend, BackendFeature};
+use crate::backend::{Backend, BackendFeature, GenericBackend};
 use crate::error::Result;
-use crate::query::builder::{MySQLQueryBuilder, QueryBuilderEnum};
+use crate::query::builder::{Dialect, QueryBuilderEnum};
 use async_trait::async_trait;
 use sqlx::MySqlPool;
 
-pub struct MySQLBackend {
-    pool: MySqlPool,
-    connection_url: String,
-}
+pub type MySQLBackend = GenericBackend<MySqlPool>;
 
 impl MySQLBackend {
-    pub async fn new(url: &str) -> Result<Self> {
+    pub async fn connect(url: &str) -> Result<Self> {
         let pool = MySqlPool::connect(url).await?;
-        Ok(Self {
+        Ok(GenericBackend::new(
             pool,
-            connection_url: url.to_string(),
-        })
-    }
-
-    pub fn pool(&self) -> &MySqlPool {
-        &self.pool
+            url.to_string(),
+            Dialect::MySQL,
+            "MySQL",
+        ))
     }
 }
 
 #[async_trait]
 impl Backend for MySQLBackend {
     fn name(&self) -> &str {
-        "MySQL"
+        self.name
     }
 
     fn connection_url(&self) -> &str {
@@ -34,11 +29,11 @@ impl Backend for MySQLBackend {
     }
 
     fn query_builder(&self) -> QueryBuilderEnum {
-        QueryBuilderEnum::MySQL(MySQLQueryBuilder::new())
+        QueryBuilderEnum::new(self.dialect)
     }
 
     async fn execute_raw(&self, sql: &str) -> Result<u64> {
-        let result = sqlx::query(sql).execute(&self.pool).await?;
+        let result = sqlx::query(sql).execute(self.pool()).await?;
         Ok(result.rows_affected())
     }
 

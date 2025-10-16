@@ -29,8 +29,8 @@ impl Database {
         let backend_type = DatabaseBackend::from_url(url)?;
 
         let backend: Box<dyn Backend> = match backend_type {
-            DatabaseBackend::SQLite => Box::new(SQLiteBackend::new(url).await?),
-            DatabaseBackend::MySQL => Box::new(MySQLBackend::new(url).await?),
+            DatabaseBackend::SQLite => Box::new(SQLiteBackend::connect(url).await?),
+            DatabaseBackend::MySQL => Box::new(MySQLBackend::connect(url).await?),
         };
 
         Ok(Self { backend })

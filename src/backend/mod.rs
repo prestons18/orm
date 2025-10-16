@@ -2,7 +2,7 @@ pub mod mysql;
 pub mod sqlite;
 
 use crate::error::Result;
-use crate::query::builder::QueryBuilderEnum;
+use crate::query::builder::{Dialect, QueryBuilderEnum};
 use async_trait::async_trait;
 
 /// Trait representing a database backend
@@ -22,6 +22,29 @@ pub trait Backend: Send + Sync + 'static {
 
     /// Check if the backend supports a specific feature
     fn supports_feature(&self, feature: BackendFeature) -> bool;
+}
+
+/// Generic backend for code reduction
+pub struct GenericBackend<P> {
+    pool: P,
+    connection_url: String,
+    dialect: Dialect,
+    name: &'static str,
+}
+
+impl<P> GenericBackend<P> {
+    pub fn new(pool: P, connection_url: String, dialect: Dialect, name: &'static str) -> Self {
+        Self {
+            pool,
+            connection_url,
+            dialect,
+            name,
+        }
+    }
+
+    pub fn pool(&self) -> &P {
+        &self.pool
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
