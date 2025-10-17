@@ -6,7 +6,7 @@ pub mod model;
 pub mod query;
 pub mod schema;
 pub mod transaction;
-pub(crate) mod utils;
+pub mod utils;
 
 pub use error::{Error, Result};
 
