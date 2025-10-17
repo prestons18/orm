@@ -26,8 +26,8 @@ impl<'a, T: Model + FromRow> ModelQuery<'a, T> {
 
     /// Add a WHERE clause (deprecated - use where_eq for safety)
     #[deprecated(note = "Use where_eq() with parameters for SQL injection protection")]
-    pub fn where_clause(mut self, condition: &str) -> Self {
-        self.builder.where_clause(condition);
+    pub fn where_clause(mut self, column: &str, value: crate::query::QueryValue) -> Self {
+        self.builder.where_eq(column, value);
         self
     }
 
@@ -150,10 +150,10 @@ pub trait ModelCrud: Model + FromRow {
 
     /// Find records matching a condition (deprecated - use parameterized queries)
     #[deprecated(note = "Use query().where_eq() with parameters for SQL injection protection")]
-    async fn where_clause(backend: &dyn Backend, condition: &str) -> Result<Vec<Self>> {
+    async fn where_clause(backend: &dyn Backend, column: &str, value: crate::query::QueryValue) -> Result<Vec<Self>> {
         #[allow(deprecated)]
         Self::query(backend)
-            .where_clause(condition)
+            .where_eq(column, value)
             .get()
             .await
     }

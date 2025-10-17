@@ -108,7 +108,7 @@ impl Schema {
     pub async fn execute(&self, backend: &dyn Backend) -> Result<()> {
         for operation in &self.operations {
             let sql = self.operation_to_sql(operation);
-            backend.execute_raw(&sql).await?;
+            backend.execute(&sql, &[]).await?;
         }
         
         Ok(())
@@ -317,14 +317,14 @@ impl MigrationRunner {
             }
         };
         
-        backend.execute_raw(sql).await?;
+        backend.execute(sql, &[]).await?;
         Ok(())
     }
 
     /// Get executed migration versions
     async fn get_executed_versions(&self, backend: &dyn Backend) -> Result<Vec<i64>> {
         
-        let rows = backend.fetch_all("SELECT version FROM migrations ORDER BY version").await?;
+        let rows = backend.fetch_all_params("SELECT version FROM migrations ORDER BY version", &[]).await?;
         
         let versions = rows
             .iter()

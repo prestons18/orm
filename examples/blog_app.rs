@@ -252,16 +252,17 @@ async fn main() -> Result<()> {
 
 async fn create_tables(backend: &dyn Backend) -> Result<()> {
     // Create authors table
-    backend.execute_raw(
+    backend.execute(
         "CREATE TABLE authors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE
-        )"
+        )",
+        &[]
     ).await?;
 
     // Create posts table
-    backend.execute_raw(
+    backend.execute(
         "CREATE TABLE posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -270,7 +271,8 @@ async fn create_tables(backend: &dyn Backend) -> Result<()> {
             published INTEGER NOT NULL DEFAULT 0,
             created_at TEXT,
             FOREIGN KEY (author_id) REFERENCES authors(id)
-        )"
+        )",
+        &[]
     ).await?;
 
     Ok(())

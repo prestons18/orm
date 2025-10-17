@@ -1,5 +1,6 @@
 use orm::prelude::*;
 use orm::query::builder::{Dialect, QueryBuilderEnum};
+use orm::query::QueryValue;
 use orm::schema::{Column, ColumnType};
 
 fn main() -> Result<()> {
@@ -19,7 +20,7 @@ fn main() -> Result<()> {
         ])
         .from("users")
         .inner_join("posts", "posts.user_id = users.id")
-        .where_clause("users.age > 18")
+        .where_eq("users.age", QueryValue::I32(18))
         .order_by("users.name", orm::query::OrderDirection::Asc)
         .build()?;
     println!("{}\n", sql);
@@ -65,7 +66,7 @@ fn main() -> Result<()> {
         .inner_join("customers", "customers.id = orders.customer_id")
         .inner_join("order_items", "order_items.order_id = orders.id")
         .inner_join("products", "products.id = order_items.product_id")
-        .where_clause("orders.status = 'completed'")
+        .where_eq("orders.status", QueryValue::String("completed".to_string()))
         .limit(10)
         .build()?;
     println!("{}\n", sql);
@@ -99,7 +100,7 @@ fn main() -> Result<()> {
         .from("categories")
         .inner_join("products", "products.category_id = categories.id")
         .left_join("order_items", "order_items.product_id = products.id")
-        .where_clause("categories.active = TRUE")
+        .where_eq("categories.active", QueryValue::Bool(true))
         .group_by(&["categories.id", "categories.name"])
         .having("COUNT(DISTINCT products.id) > 0")
         .order_by("total_sold", orm::query::OrderDirection::Desc)
@@ -113,7 +114,10 @@ fn main() -> Result<()> {
     println!("7. MySQL INSERT (RETURNING ignored):");
     let sql = mysql_builder
         .insert_into("users", &["name", "email"])
-        .values(&["'John Doe'", "'john@example.com'"])
+        .values_params(&[
+            QueryValue::String("John Doe".to_string()),
+            QueryValue::String("john@example.com".to_string())
+        ])
         .returning(&["id"]) // This will be ignored for MySQL
         .build()?;
     println!("{}\n", sql);
@@ -123,7 +127,10 @@ fn main() -> Result<()> {
     println!("8. SQLite INSERT with RETURNING:");
     let sql = sqlite_builder
         .insert_into("users", &["name", "email"])
-        .values(&["'Jane Doe'", "'jane@example.com'"])
+        .values_params(&[
+            QueryValue::String("Jane Doe".to_string()),
+            QueryValue::String("jane@example.com".to_string())
+        ])
         .returning(&["id", "name"])
         .build()?;
     println!("{}\n", sql);

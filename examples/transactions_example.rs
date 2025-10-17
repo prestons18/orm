@@ -1,4 +1,4 @@
-use orm::prelude::*;
+use orm::{prelude::*, query::QueryValue};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -69,12 +69,13 @@ async fn main() -> Result<()> {
     let backend = db.backend();
 
     // Create accounts table
-    backend.execute_raw(
+    backend.execute(
         "CREATE TABLE accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             balance INTEGER NOT NULL
-        )"
+        )",
+        &[]
     ).await?;
 
     // Create initial accounts
@@ -136,8 +137,9 @@ async fn transfer(backend: &dyn Backend, from_id: i64, to_id: i64, amount: i64) 
     let mut tx = backend.begin_transaction().await?;
 
     // Get source account
-    let from_account_json = tx.fetch_one(
-        &format!("SELECT * FROM accounts WHERE id = {}", from_id)
+    let from_account_json = tx.fetch_one_params(
+        "SELECT * FROM accounts WHERE id = ?",
+        &[QueryValue::I64(from_id)]
     ).await?;
     
     let from_account = match from_account_json {
@@ -152,16 +154,16 @@ async fn transfer(backend: &dyn Backend, from_id: i64, to_id: i64, amount: i64) 
     }
 
     // Deduct from source account
-    tx.execute(&format!(
-        "UPDATE accounts SET balance = balance - {} WHERE id = {}",
-        amount, from_id
-    )).await?;
+    tx.execute_params(
+        "UPDATE accounts SET balance = balance - ? WHERE id = ?",
+        &[QueryValue::I64(amount), QueryValue::I64(from_id)]
+    ).await?;
 
     // Add to destination account
-    tx.execute(&format!(
-        "UPDATE accounts SET balance = balance + {} WHERE id = {}",
-        amount, to_id
-    )).await?;
+    tx.execute_params(
+        "UPDATE accounts SET balance = balance + ? WHERE id = ?",
+        &[QueryValue::I64(amount), QueryValue::I64(to_id)]
+    ).await?;
 
     // Commit transaction
     tx.commit().await?;

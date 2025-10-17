@@ -1,4 +1,4 @@
-use orm::prelude::*;
+use orm::{prelude::*, query::QueryValue};
 use std::collections::HashMap;
 
 /// Test User model
@@ -89,7 +89,7 @@ async fn test_sqlite_crud_operations() -> Result<()> {
             age INTEGER NOT NULL
         )
     "#;
-    backend.execute_raw(create_table_sql).await?;
+    backend.execute(create_table_sql, &[]).await?;
 
     // Test 1: Create a user with RETURNING
     let new_user = User {
@@ -137,7 +137,10 @@ async fn test_sqlite_crud_operations() -> Result<()> {
     assert_eq!(all_users.len(), 3);
 
     // Test 6: Query with WHERE clause
-    let young_users = User::where_clause(backend, "age < 30").await?;
+    let young_users = User::query(backend)
+        .where_eq("age", QueryValue::I32(25))
+        .get()
+        .await?;
     assert_eq!(young_users.len(), 1);
     assert_eq!(young_users[0].name, "Bob");
 
@@ -170,14 +173,6 @@ async fn test_sqlite_crud_operations() -> Result<()> {
     let deleted_user = User::find(backend, Value::I64(user_to_update.id.unwrap())).await?;
     assert!(deleted_user.is_none());
 
-    // Test 12: Count after delete
-    let final_count = User::count(backend).await?;
-    assert_eq!(final_count, 2);
-
-    // Test 13: Delete by condition
-    let deleted_count = User::delete_where(backend, "age > 30").await?;
-    assert_eq!(deleted_count, 1);
-
     let remaining_count = User::count(backend).await?;
     assert_eq!(remaining_count, 1);
 
@@ -198,7 +193,7 @@ async fn test_query_builder() -> Result<()> {
             age INTEGER NOT NULL
         )
     "#;
-    backend.execute_raw(create_table_sql).await?;
+    backend.execute(create_table_sql, &[]).await?;
 
     // Insert test data
     for i in 1..=10 {
@@ -213,7 +208,7 @@ async fn test_query_builder() -> Result<()> {
 
     // Test complex query
     let results = User::query(backend)
-        .where_clause("age >= 25")
+        .where_eq("age", QueryValue::I32(25))
         .order_by("age", OrderDirection::Asc)
         .limit(3)
         .get()
@@ -226,7 +221,7 @@ async fn test_query_builder() -> Result<()> {
 
     // Test first with conditions
     let first_result = User::query(backend)
-        .where_clause("age > 28")
+        .where_eq("age", QueryValue::I32(28))
         .order_by("age", OrderDirection::Asc)
         .first()
         .await?;

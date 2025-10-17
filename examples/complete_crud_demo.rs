@@ -1,4 +1,5 @@
 use orm::prelude::*;
+use orm::query::QueryValue;
 use std::collections::HashMap;
 
 /// Example User model
@@ -93,7 +94,7 @@ async fn main() -> Result<()> {
             age INTEGER NOT NULL
         )
     "#;
-    backend.execute_raw(create_table_sql).await?;
+    backend.execute(create_table_sql, &[]).await?;
     println!("✓ Created 'users' table\n");
 
     // CREATE: Insert new users
@@ -142,7 +143,10 @@ async fn main() -> Result<()> {
     println!("\nTotal user count: {}", count);
 
     // READ: Query with WHERE clause
-    let young_users = User::where_clause(backend, "age < 30").await?;
+    let young_users = User::query(backend)
+        .where_eq("age", QueryValue::I32(30))
+        .get()
+        .await?;
     println!("\nUsers under 30:");
     for user in &young_users {
         println!("  - {} (age: {})", user.name, user.age);
@@ -165,7 +169,7 @@ async fn main() -> Result<()> {
     // READ: Complex query builder
     println!("\n--- Complex Query Builder ---");
     let complex_results = User::query(backend)
-        .where_clause("age >= 25")
+        .where_eq("age", QueryValue::I32(25))
         .order_by("age", OrderDirection::Asc)
         .limit(2)
         .get()
@@ -197,7 +201,15 @@ async fn main() -> Result<()> {
     println!("Users after delete: {}", count_after);
 
     // DELETE: Remove by condition
-    let deleted_count = User::delete_where(backend, "age > 30").await?;
+    let users_to_delete = User::query(backend)
+        .where_eq("age", QueryValue::I32(30))
+        .get()
+        .await?;
+    let mut deleted_count = 0;
+    for user in users_to_delete {
+        user.delete(backend).await?;
+        deleted_count += 1;
+    }
     println!("\nDeleted {} users with age > 30", deleted_count);
     
     let final_count = User::count(backend).await?;

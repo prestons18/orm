@@ -160,8 +160,9 @@ async fn main() -> Result<()> {
     
     // Verify tables were created
     println!("\n📋 Verifying database schema...");
-    let tables = backend.fetch_all(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    let tables = backend.fetch_all_params(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+        &[]
     ).await?;
     
     println!("Created tables:");

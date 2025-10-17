@@ -43,7 +43,7 @@ impl Database {
 
     /// Execute raw SQL
     pub async fn execute(&self, sql: &str) -> Result<u64> {
-        self.backend.execute_raw(sql).await
+        self.backend.execute(sql, &[]).await
     }
 
     /// Begin a new transaction
