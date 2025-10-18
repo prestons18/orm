@@ -4,12 +4,18 @@ use crate::query::builder::{Dialect, QueryBuilderEnum};
 use crate::query::QueryValue;
 use async_trait::async_trait;
 use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteConnectOptions;
+use std::str::FromStr;
 
 pub type SQLiteBackend = GenericBackend<SqlitePool>;
 
 impl SQLiteBackend {
     pub async fn connect(url: &str) -> Result<Self> {
-        let pool = SqlitePool::connect(url).await?;
+        // Create the database file if it doesn't exist
+        let options = SqliteConnectOptions::from_str(url)?
+            .create_if_missing(true);
+        
+        let pool = SqlitePool::connect_with(options).await?;
         Ok(GenericBackend::new(
             pool,
             url.to_string(),
