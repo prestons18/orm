@@ -16,6 +16,6 @@ pub mod prelude {
     pub use crate::error::{Error, Result};
     pub use crate::model::{FromRow, Model, ModelCrud, ModelQuery, Value};
     pub use crate::query::{JoinType, OrderDirection, QueryBuilder};
-    pub use crate::schema::{Column, Table};
+    pub use crate::schema::{Column, Table, SchemaExport, export_schema, export_schema_json};
     pub use crate::transaction::Transaction;
 }
